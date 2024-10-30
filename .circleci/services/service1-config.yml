@@ -1,0 +1,84 @@
+version: 2.1
+
+jobs:
+  service1-pre-build:
+    executor: bookworm
+    working_directory: ~/project/services/service1
+    steps:
+      - checkout:
+          path: ~/project
+      - yarn_repo_setting
+      - yarn_repo_auth_setting
+      # キャッシュして次回から使う
+      - restore_cache:
+          keys:
+            - v1-yarn-cache-{{ .Branch }}-{{ checksum "yarn.lock" }}
+      # インストール
+      - yarn_install
+      # コードチェック
+      - code_check
+      # テスト
+      - yarn_test
+      # キャッシュ記録
+      - save_cache:
+          key: v1-yarn-cache-{{ .Branch }}-{{ checksum "yarn.lock" }}
+          paths:
+            - ./node_modules
+
+  service1-build-and-push:
+    executor: google-cloud-cli
+    working_directory: ~/project/services/service1
+    steps:
+      - checkout:
+          path: ~/project
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - gcloud_setting
+      - image_tag_setting
+      - existing_image_check
+      - yarn_repo_auth_setting
+      - image_build
+      - image_push
+
+  service1-deploy:
+    executor: google-cloud-cli
+    working_directory: ~/project/services/service1
+    steps:
+      - checkout:
+          path: ~/project
+      - gcloud_setting
+      - image_tag_setting
+      - deploy
+
+workflows:
+
+  service1-develop:
+    jobs:
+      # プレビルドパイプライン
+      - service1-pre-build:
+          filters: &prebuild_filters
+            branches:
+              only: 
+                - /^feature\/.*|^bugfix\/.*/
+                - main # 一時的にdevelopからmainに変更
+          context:
+            - DEVELOPMENT_TOOL
+            - SERVICE1_FR_DEV
+      # ビルドパイプライン
+      - service1-build-and-push:
+          requires:
+            - service1-pre-build
+          filters: &develop_filters
+            branches:
+              only: 
+                - main # 一時的にdevelopからmainに変更
+          context: 
+            - DEVELOPMENT_TOOL
+            - SERVICE1_FR_DEV
+      # デプロイパイプライン
+      - service1-deploy:
+          requires:
+            - service1-build-and-push
+          filters: *develop_filters
+          context:
+            - SERVICE1_FR_DEV
