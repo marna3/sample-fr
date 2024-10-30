@@ -39,6 +39,7 @@ commands:
       - run:
           name: Set Authentication for Artifact Registry npm Repository
           command: |
+            cp ./.npmrc.template ./.npmrc
             sed -i "s/<GCP_REGION>/${DEVELOPMENT_TOOL_GCP_REGION}/g" ./.npmrc
             sed -i "s/<GCP_PROJECT>/${DEVELOPMENT_TOOL_GCP_PROJECT}/g" ./.npmrc
             sed -i "s/<ARTIFACT_REGISTRY_JS_REPO_NAME>/${DEVELOPMENT_TOOL_ARTIFACT_REGISTRY_JS_REPO_NAME}/g" ./.npmrc
@@ -110,15 +111,14 @@ commands:
           command: |
             echo "Image Tag: ${IMAGE_TAG}"
             docker build \
-              --secret id=gsa-key,env=DEVELOPMENT_TOOL_GSA_KEY \
-              --build-arg ARTIFACT_REGISTRY_JAVA_URL=${DEVELOPMENT_TOOL_ARTIFACT_REGISTRY_JS_URL} \
               --build-arg GCP_REGION=${DEVELOPMENT_TOOL_GCP_REGION} \
               --build-arg GCP_PROJECT=${DEVELOPMENT_TOOL_GCP_PROJECT} \
               --build-arg BASE_AR_REPO_NAME=${DEVELOPMENT_TOOL_BASE_AR_REPO_NAME} \
+              --build-arg ARTIFACT_REGISTRY_JS_REPO_NAME=${DEVELOPMENT_TOOL_ARTIFACT_REGISTRY_JS_REPO_NAME} \
               --build-arg APP_ENV=${APP_ENV} \
               -t ${SERVICE_GCP_REGION}-docker.pkg.dev/${SERVICE_GCP_PROJECT}/${SERVICE_AR_REPO_NAME}/${SERVICE_NAME}:${IMAGE_TAG} \
               -f ./Dockerfile \
-              /root/project
+              .
   image_push:
     steps:
       - run:
